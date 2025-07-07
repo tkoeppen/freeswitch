@@ -35,6 +35,8 @@
 #include <switch_stun.h>
 #include <switch_nat.h>
 #include "private/switch_core_pvt.h"
+// -tk- experimental, not validated SBC patch
+#include "switch_channel.h"
 #include <switch_curl.h>
 #include <errno.h>
 #include <sofia-sip/sdp.h>
@@ -1316,7 +1318,14 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_add_crypto(switch_core_session
 		/* Parsing the key material candidate within [begin, end). */
 
 		if ((delimit = strchr(p, ':')) == NULL) {
-			goto bad_error_parsing_near;
+			// -tk- experimental, not validated SBC patch
+			if(!strcasecmp(p, "UNENCRYPTED_SRTCP")){
+					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "Detected UNENCRYPTED_SRTCP, switch to Avaya compatibility mode\n");
+					switch_channel_set_variable(session->channel, "accept_unencrypted_srtcp", "true");
+					continue;
+			} else {
+					goto bad_error_parsing_near;
+			}
 		}
 
 		method_len = delimit - p;
@@ -10052,7 +10061,9 @@ static void generate_m(switch_core_session_t *session, char *buf, size_t buflen,
 			switch_rtp_crypto_key_type_t j = SUITES[smh->crypto_suite_order[i]].type;
 
 			if ((a_engine->crypto_type == j || a_engine->crypto_type == CRYPTO_INVALID) && !zstr(a_engine->ssec[j].local_crypto_key)) {
-				switch_snprintf(buf + strlen(buf), buflen - strlen(buf), "a=crypto:%s\r\n", a_engine->ssec[j].local_crypto_key);
+				// -tk- experimental, not validated SBC patch
+				const char *val = switch_channel_get_variable(session->channel, "accept_unencrypted_srtcp");
+				switch_snprintf(buf + strlen(buf), buflen - strlen(buf), "a=crypto:%s%s\r\n", a_engine->ssec[j].local_crypto_key, (val? " UNENCRYPTED_SRTCP": ""));
 			}
 		}
 		//switch_snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "a=encryption:optional\r\n");
@@ -10780,8 +10791,14 @@ SWITCH_DECLARE(void) switch_core_media_gen_local_sdp(switch_core_session_t *sess
 		if (a_engine->crypto_type != CRYPTO_INVALID && !switch_channel_test_flag(session->channel, CF_DTLS) &&
 			!zstr(a_engine->ssec[a_engine->crypto_type].local_crypto_key) && switch_channel_test_flag(session->channel, CF_SECURE)) {
 
-			switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=crypto:%s\r\n", a_engine->ssec[a_engine->crypto_type].local_crypto_key);
-		//switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=encryption:optional\r\n");
+			// -tk- experimental, not validated SBC patch
+			const char *val = switch_channel_get_variable(session->channel, "accept_unencrypted_srtcp");
+			if(val){
+					switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=crypto:%s UNENCRYPTED_SRTCP\r\n", a_engine->ssec[a_engine->crypto_type].local_crypto_key);
+			} else {
+					switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=crypto:%s\r\n", a_engine->ssec[a_engine->crypto_type].local_crypto_key);
+					//switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=encryption:optional\r\n");
+					}
 		}
 
 		if (a_engine->reject_avp) {
@@ -11333,7 +11350,9 @@ SWITCH_DECLARE(void) switch_core_media_gen_local_sdp(switch_core_session_t *sess
 						switch_rtp_crypto_key_type_t j = SUITES[smh->crypto_suite_order[i]].type;
 
 						if ((a_engine->crypto_type == j || a_engine->crypto_type == CRYPTO_INVALID) && !zstr(a_engine->ssec[j].local_crypto_key)) {
-							switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=crypto:%s\r\n", v_engine->ssec[j].local_crypto_key);
+							// -tk- experimental, not validated SBC patch
+							const char *val = switch_channel_get_variable(session->channel, "accept_unencrypted_srtcp");
+							switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=crypto:%s%s\r\n", v_engine->ssec[j].local_crypto_key, (val? " UNENCRYPTED_SRTCP": ""));
 						}
 					}
 					//switch_snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "a=encryption:optional\r\n");
@@ -11674,7 +11693,9 @@ SWITCH_DECLARE(void) switch_core_media_gen_local_sdp(switch_core_session_t *sess
 						switch_rtp_crypto_key_type_t j = SUITES[smh->crypto_suite_order[i]].type;
 
 						if ((t_engine->crypto_type == j || t_engine->crypto_type == CRYPTO_INVALID) && !zstr(t_engine->ssec[j].local_crypto_key)) {
-							switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=crypto:%s\r\n", t_engine->ssec[j].local_crypto_key);
+							// -tk- experimental, not validated SBC patch
+							const char *val = switch_channel_get_variable(session->channel, "accept_unencrypted_srtcp");
+							switch_snprintf(buf + strlen(buf), SDPBUFLEN - strlen(buf), "a=crypto:%s%s\r\n", t_engine->ssec[j].local_crypto_key, (val? " UNENCRYPTED_SRTCP": ""));
 						}
 					}
 					//switch_snprintf(buf + strlen(buf), sizeof(buf) - strlen(buf), "a=encryption:optional\r\n");
