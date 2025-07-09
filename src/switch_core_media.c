@@ -1318,9 +1318,9 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_add_crypto(switch_core_session
 		/* Parsing the key material candidate within [begin, end). */
 
 		if ((delimit = strchr(p, ':')) == NULL) {
-			// -tk- experimental, not validated SBC patch
-			if(!strcasecmp(p, "UNENCRYPTED_SRTCP")){
-					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "Detected UNENCRYPTED_SRTCP, switch to Avaya compatibility mode\n");
+			// -tk- experimental, not validated SBC patch, read FORCE_UNENCRYPTED_SRTCP variable
+			if(!strcasecmp(p, "UNENCRYPTED_SRTCP") && switch_channel_var_true(session->channel, "FORCE_UNENCRYPTED_SRTCP")) {
+					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "Detected UNENCRYPTED_SRTCP, proprietary SBC compatibility mode\n");
 					switch_channel_set_variable(session->channel, "accept_unencrypted_srtcp", "true");
 					continue;
 			} else {
