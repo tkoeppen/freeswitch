@@ -1318,7 +1318,13 @@ SWITCH_DECLARE(switch_status_t) switch_core_media_add_crypto(switch_core_session
 		/* Parsing the key material candidate within [begin, end). */
 
 		if ((delimit = strchr(p, ':')) == NULL) {
-			goto bad_error_parsing_near;
+			// -tk- experimental, ignore UNENCRYPTED_SRTCP param if forced
+			if(!strcasecmp(p, "UNENCRYPTED_SRTCP") && switch_channel_var_true(session->channel, "FORCE_UNENCRYPTED_SRTCP")) {
+					switch_log_printf(SWITCH_CHANNEL_SESSION_LOG(session), SWITCH_LOG_INFO, "Detected UNENCRYPTED_SRTCP, proprietary SBC compatibility mode\n");     
+					continue;
+			} else {
+					goto bad_error_parsing_near;
+			}
 		}
 
 		method_len = delimit - p;
